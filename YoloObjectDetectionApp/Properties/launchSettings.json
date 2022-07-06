@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "OnnxObjectDetectionApp": {
+      "commandName": "Project",
+      "nativeDebugging": true
+    }
+  }
+}
