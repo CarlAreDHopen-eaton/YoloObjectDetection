@@ -31,8 +31,4 @@
     <ProjectReference Include="..\YoloObjectDetection\YoloObjectDetection.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Models\" />
-  </ItemGroup>
-
 </Project>
