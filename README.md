@@ -9,3 +9,13 @@ This is a work in progress.
 
 **NOTE**
 Due to file size restrictions here in Github I have not included the ONNX models in the repo.
+
+## Build and run
+- Using VS 2022
+- Clone the repo
+- Download the Yolov4.onnx model
+- Build the solution
+- Copy the model to the build output folder of the application
+- Set the rtsp url including logon credentials as run argument
+- Run the application
+
