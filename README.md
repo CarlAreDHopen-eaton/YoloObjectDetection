@@ -19,3 +19,15 @@ Due to file size restrictions here in Github I have not included the ONNX models
 - Set the rtsp url including logon credentials as run argument
 - Run the application
 
+# Tasks
+[ ] Application
+ [X] Initial app connect to rtsp
+ [ ] Propper parameter parsing
+ [ ] Add ui
+[ ] Library
+ [ ] Common
+  [ ] Unify code for algoritms
+ [ ] Yolov4 support
+  [X] Initial prototype
+ [ ] TinyYolov2 support
+  [ ] Initial prototype
