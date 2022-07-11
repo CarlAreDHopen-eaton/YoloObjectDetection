@@ -21,13 +21,16 @@ Due to file size restrictions here in Github I have not included the ONNX models
 
 # Tasks
 - [ ] Application
-- [X] Initial app connect to rtsp
-- [ ] Propper parameter parsing
- - [ ] Add ui
+  - [X] Initial app connect to rtsp
+  - [ ] Propper parameter parsing
+  - [ ] Add ui
 - [ ] Library
- - [ ] Yolo support
-  - [ ] Unify code for algoritms
- - [ ] Yolov4 support
-  - [X] Initial prototype
-- [ ] TinyYolov2 support
- - [ ] Initial prototype
+  - [ ] Yolo support
+    - [ ] Unify code for algoritms
+    - [ ] Config for object clases 
+  - [ ] Yolov4 support
+    - [X] Initial prototype
+  - [ ] TinyYolov2 support
+    - [ ] Initial prototype
+  - [ ] Other Yolo versions TBD
+
