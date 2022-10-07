@@ -30,6 +30,7 @@ namespace YoloObjectDetectionApp
          {
             mUrl = args[1];
          }
+         ConnectionUri.Text = mUrl;
       }
 
       protected override void OnActivated(EventArgs e)
