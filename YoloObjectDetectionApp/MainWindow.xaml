@@ -6,14 +6,22 @@
         xmlns:local="clr-namespace:OnnxObjectDetectionApp"
         mc:Ignorable="d"
         Title="ML.NET Object Detection (Onnx)" Height="506" Width="640">
-   <Grid Background="Black">
-      <Grid.ColumnDefinitions>
-         <ColumnDefinition Width="*"/>
-      </Grid.ColumnDefinitions>
+
+   <Grid Background="White">
       <Grid.RowDefinitions>
-         <RowDefinition Height="*" />
+         <RowDefinition Height="*"/>
+         <RowDefinition Height="50"/>
       </Grid.RowDefinitions>
-      <Image x:Name="DisplayImage" Grid.Row="0" />
-      <Canvas x:Name="DisplayImageCanvas" Grid.Row="0" Width="{Binding Path=ActualWidth, ElementName=DisplayImage}" Height="{Binding Path=ActualHeight, ElementName=DisplayImage}" Margin="0,0,0,0"/>
+      <Grid Grid.Row="0" Background="Black">
+         <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+         </Grid.ColumnDefinitions>
+         <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+         </Grid.RowDefinitions>
+         <Image x:Name="DisplayImage" Grid.Row="0" />
+         <Canvas x:Name="DisplayImageCanvas" Grid.Row="0" Width="{Binding Path=ActualWidth, ElementName=DisplayImage}" Height="{Binding Path=ActualHeight, ElementName=DisplayImage}" Margin="0,0,0,0"/>
+      </Grid>
+      <TextBox Grid.Row="1" x:Name="ConnectionUri">rtsp://</TextBox>
    </Grid>
 </Window>
