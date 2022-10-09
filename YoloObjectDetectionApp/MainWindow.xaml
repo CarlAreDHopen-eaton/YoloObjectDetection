@@ -5,12 +5,12 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:OnnxObjectDetectionApp"
         mc:Ignorable="d"
-        Title="ML.NET Object Detection (Onnx)" Height="506" Width="640">
+        Title="ML.NET Object Detection (Onnx)" Height="592" Width="779">
 
-   <Grid Background="White">
+   <Grid Background="White" Margin="0,0,0,0">
       <Grid.RowDefinitions>
-         <RowDefinition Height="*"/>
-         <RowDefinition Height="50"/>
+         <RowDefinition/>
+         <RowDefinition Height="81.04"/>
       </Grid.RowDefinitions>
       <Grid Grid.Row="0" Background="Black">
          <Grid.ColumnDefinitions>
@@ -22,6 +22,8 @@
          <Image x:Name="DisplayImage" Grid.Row="0" />
          <Canvas x:Name="DisplayImageCanvas" Grid.Row="0" Width="{Binding Path=ActualWidth, ElementName=DisplayImage}" Height="{Binding Path=ActualHeight, ElementName=DisplayImage}" Margin="0,0,0,0"/>
       </Grid>
-      <TextBox Grid.Row="1" x:Name="ConnectionUri">rtsp://</TextBox>
+      <TextBox Grid.Row="1" x:Name="ConnectionUri" Margin="10,0,203,46" Height="25" VerticalAlignment="Bottom">rtsp://</TextBox>
+      <Button Grid.Row="1" x:Name="ConnectButton" Margin="0,10,10,0" Content="Connect" Click="ConnectButton_Click" HorizontalAlignment="Right" Width="188" Height="25" VerticalAlignment="Top" />
+      <Button Grid.Row="1" x:Name="DisconnectButton" Margin="0,0,10,10" Content="Disconnect" Click="DisconnectButton_Click" HorizontalAlignment="Right" Width="188" Height="25" VerticalAlignment="Bottom" />
    </Grid>
 </Window>

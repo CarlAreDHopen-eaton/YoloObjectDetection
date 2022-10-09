@@ -17,7 +17,7 @@ namespace YoloObjectDetectionApp
    public partial class MainWindow : System.Windows.Window, ICanvasHandler
    {
       private VideoCapture mVideoCapture;
-      private readonly string mUrl = @"rtsp://SomeUser:SomePassword@10.0.0.166:554/live/camera1/stream1";
+      private string mUrl = @"rtsp://SomeUser:SomePassword@10.0.0.166:554/live/camera1/stream1";
       private CancellationTokenSource mCameraCaptureCancellationTokenSource;
       private readonly ManualResetEvent mManualAnalyzeResetEvent = new ManualResetEvent(true);
 
@@ -26,17 +26,11 @@ namespace YoloObjectDetectionApp
          InitializeComponent();
 
          string[] args = Environment.GetCommandLineArgs();
-         if (args != null && args.Length == 2)
+         if (args.Length == 2)
          {
             mUrl = args[1];
          }
          ConnectionUri.Text = mUrl;
-      }
-
-      protected override void OnActivated(EventArgs e)
-      {
-         base.OnActivated(e);
-         StartCameraCapture();
       }
 
       protected override void OnClosing(CancelEventArgs e)
@@ -45,11 +39,12 @@ namespace YoloObjectDetectionApp
          base.OnClosing(e);
       }
 
-      private void StartCameraCapture()
+      private void StartCameraCapture(string strUrl)
       {
          if (mCameraCaptureCancellationTokenSource == null)
          {
             mCameraCaptureCancellationTokenSource = new CancellationTokenSource();
+            mUrl = strUrl;
             Task.Run(() => CaptureCamera(mCameraCaptureCancellationTokenSource.Token), mCameraCaptureCancellationTokenSource.Token);
          }
       }
@@ -162,6 +157,16 @@ namespace YoloObjectDetectionApp
       public void Clear()
       {
          DisplayImageCanvas.Children.Clear();
+      }
+
+      private void ConnectButton_Click(object sender, RoutedEventArgs e)
+      {
+         StartCameraCapture(ConnectionUri.Text);
+      }
+
+      private void DisconnectButton_Click(object sender, RoutedEventArgs e)
+      {
+         StopCameraCapture();
       }
    }
 }
