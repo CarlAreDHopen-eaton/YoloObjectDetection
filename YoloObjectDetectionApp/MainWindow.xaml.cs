@@ -20,6 +20,7 @@ namespace YoloObjectDetectionApp
       private string mUrl = @"rtsp://SomeUser:SomePassword@10.0.0.166:554/live/camera1/stream1";
       private CancellationTokenSource mCameraCaptureCancellationTokenSource;
       private readonly ManualResetEvent mManualAnalyzeResetEvent = new ManualResetEvent(true);
+      private Task mConnectionTask;
 
       public MainWindow()
       {
@@ -45,13 +46,22 @@ namespace YoloObjectDetectionApp
          {
             mCameraCaptureCancellationTokenSource = new CancellationTokenSource();
             mUrl = strUrl;
-            Task.Run(() => CaptureCamera(mCameraCaptureCancellationTokenSource.Token), mCameraCaptureCancellationTokenSource.Token);
+            mConnectionTask = Task.Run(() => CaptureCamera(mCameraCaptureCancellationTokenSource.Token));
+            //Task.Run(() => CaptureCamera(mCameraCaptureCancellationTokenSource.Token), mCameraCaptureCancellationTokenSource.Token);
          }
       }
 
-      private void StopCameraCapture()
+      private async void StopCameraCapture()
       {
-         mCameraCaptureCancellationTokenSource?.Cancel();
+         if (mConnectionTask != null)
+         {
+            mCameraCaptureCancellationTokenSource?.Cancel();
+            await mConnectionTask;
+            //mCameraCaptureCancellationTokenSource = null;
+            mUrl = null;
+            ClearCanvas();
+            DisplayImage.Source = null;
+         }
       }
 
       private async Task CaptureCamera(CancellationToken token)
@@ -154,7 +164,7 @@ namespace YoloObjectDetectionApp
             Console.WriteLine("Object type not supported ");
       }
 
-      public void Clear()
+      public void ClearCanvas()
       {
          DisplayImageCanvas.Children.Clear();
       }

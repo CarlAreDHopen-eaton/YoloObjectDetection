@@ -10,6 +10,6 @@
       /// <summary>
       /// Clear the canvas.
       /// </summary>
-      public void Clear();
+      public void ClearCanvas();
    }
 }

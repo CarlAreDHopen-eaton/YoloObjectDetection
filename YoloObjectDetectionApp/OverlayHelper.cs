@@ -13,7 +13,7 @@ namespace YoloObjectDetectionApp
    {
       public static void DrawOverlays(ICanvasHandler canvasHandler, List<BoundingBox> boundingBoxes, double originalHeight, double originalWidth)
       {
-         canvasHandler.Clear();
+         canvasHandler.ClearCanvas();
 
          foreach (BoundingBox box in boundingBoxes)
          {
