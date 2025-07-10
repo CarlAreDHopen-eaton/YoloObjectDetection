@@ -2,10 +2,12 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using YoloObjectDetection;
 using YoloObjectDetection.Interfaces;
@@ -21,6 +23,9 @@ namespace YoloObjectDetectionApp
       private CancellationTokenSource mCameraCaptureCancellationTokenSource;
       private readonly ManualResetEvent mManualAnalyzeResetEvent = new ManualResetEvent(true);
       private Task mConnectionTask;
+      private WriteableBitmap _writeableBitmap;
+      private int _wbPixelWidth = 0;
+      private int _wbPixelHeight = 0;
 
       public MainWindow()
       {
@@ -42,12 +47,12 @@ namespace YoloObjectDetectionApp
 
       private void StartCameraCapture(string strUrl)
       {
+         Debug.WriteLine($"StartCameraCapture called with URL: {strUrl}");
          if (mCameraCaptureCancellationTokenSource == null)
          {
             mCameraCaptureCancellationTokenSource = new CancellationTokenSource();
             mUrl = strUrl;
             mConnectionTask = Task.Run(() => CaptureCamera(mCameraCaptureCancellationTokenSource.Token));
-            //Task.Run(() => CaptureCamera(mCameraCaptureCancellationTokenSource.Token), mCameraCaptureCancellationTokenSource.Token);
          }
       }
 
@@ -76,50 +81,72 @@ namespace YoloObjectDetectionApp
          {
             IYoloDetector yoloV4Detector = new YoloV4Detector();
             int iFrameCount = int.MaxValue;
-            while (!token.IsCancellationRequested)
+            try
             {
-               //Console.WriteLine("mVideoCapture.FrameCount:" + mVideoCapture.FrameCount);
+                while (!token.IsCancellationRequested)
+                {
+                    bool grabbed = mVideoCapture.Grab();
+                    if (!grabbed)
+                    {
+                        Debug.WriteLine("Grab failed, sleeping...");
+                        Thread.Sleep(50);
+                        continue;
+                    }
+                    Mat orgMatrix = new Mat();
+                    bool retrieved = mVideoCapture.Retrieve(orgMatrix);
+                    if (!retrieved || orgMatrix.Empty())
+                    {
+                        Debug.WriteLine("No frame retrieved, sleeping...");
+                        Thread.Sleep(50);
+                        continue;
+                    }
 
-               Mat orgMatrix = new Mat();
-               if (!mVideoCapture.Read(orgMatrix))
-               {
-                  Thread.Sleep(50);
-                  continue;
-               }
-               // TODO Figure out a better way to keep up with the stream.
-               Mat temp = new Mat();
-               if (mVideoCapture.Read(temp))
-                  temp.Dispose();
-               temp = new Mat();
-               if (mVideoCapture.Read(temp))
-                  temp.Dispose();
+                    // Update UI on every frame (no throttling)
+                    await Application.Current.Dispatcher.InvokeAsync(() =>
+                    {
+                        try
+                        {
+                            // Initialize WriteableBitmap if needed
+                            if (_writeableBitmap == null || _wbPixelWidth != orgMatrix.Width || _wbPixelHeight != orgMatrix.Height)
+                            {
+                                _wbPixelWidth = orgMatrix.Width;
+                                _wbPixelHeight = orgMatrix.Height;
+                                _writeableBitmap = new WriteableBitmap(
+                                    orgMatrix.Width,
+                                    orgMatrix.Height,
+                                    96, 96, // DPI
+                                    PixelFormats.Bgr24, // OpenCvSharp default
+                                    null);
+                                DisplayImage.Source = _writeableBitmap;
+                            }
+                            // Copy Mat data to WriteableBitmap
+                            var rect = new Int32Rect(0, 0, orgMatrix.Width, orgMatrix.Height);
+                            int stride = orgMatrix.Width * 3; // 3 bytes per pixel for Bgr24
+                            _writeableBitmap.Lock();
+                            _writeableBitmap.WritePixels(rect, orgMatrix.Data, stride * orgMatrix.Height, stride);
+                            _writeableBitmap.AddDirtyRect(rect);
+                            _writeableBitmap.Unlock();
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"Update image, catch exception triggered: {ex.Message}");
+                        }
+                    }, System.Windows.Threading.DispatcherPriority.Background);
 
-               await Application.Current.Dispatcher.InvokeAsync(() =>
-               {
-                  try
-                  {
-                     BitmapImage displayImageSource = new BitmapImage();
-                     displayImageSource.BeginInit();
-                     displayImageSource.CacheOption = BitmapCacheOption.OnLoad;
-                     displayImageSource.StreamSource = orgMatrix.ToMemoryStream();
-                     displayImageSource.EndInit();
-                     DisplayImage.Source = displayImageSource;
-                  }
-                  catch (Exception ex)
-                  {
-                     Console.WriteLine($"Update image, catch exception triggered: {ex.Message}");
-                  }
-               });
-
-               if (iFrameCount > 25 && mManualAnalyzeResetEvent.WaitOne(0))
-               {
-                  mManualAnalyzeResetEvent.Reset();
-                  iFrameCount = 0;
-                  Mat resizedMatrix = orgMatrix.Resize(new OpenCvSharp.Size(YoloV4Config.C_IMAGE_WIDTH, YoloV4Config.C_IMAGE_HEIGHT));
-                  var size = new OpenCvSharp.Size(orgMatrix.Width, orgMatrix.Height);
-                  _ = Task.Run(() => AnalyzeFrameAsync(yoloV4Detector, resizedMatrix, size));
-               }
-               iFrameCount++;
+                    if (iFrameCount > 2 && mManualAnalyzeResetEvent.WaitOne(0))
+                    {
+                        mManualAnalyzeResetEvent.Reset();
+                        iFrameCount = 0;
+                        Mat resizedMatrix = orgMatrix.Resize(new OpenCvSharp.Size(YoloV4Config.C_IMAGE_WIDTH, YoloV4Config.C_IMAGE_HEIGHT));
+                        var size = new OpenCvSharp.Size(orgMatrix.Width, orgMatrix.Height);
+                        _ = Task.Run(() => AnalyzeFrameAsync(yoloV4Detector, resizedMatrix, size));
+                    }
+                    iFrameCount++;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Exception in capture loop: {ex.Message}\n{ex.StackTrace}");
             }
             mVideoCapture.Release();
          }
@@ -145,7 +172,7 @@ namespace YoloObjectDetectionApp
          }
          catch (Exception ex)
          {
-            Console.WriteLine($"Analyze image, catch exception triggered: {ex.Message}");
+            Debug.WriteLine($"Analyze image, catch exception triggered: {ex.Message}");
          }
          finally
          {
