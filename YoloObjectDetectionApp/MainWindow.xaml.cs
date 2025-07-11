@@ -26,11 +26,18 @@ namespace YoloObjectDetectionApp
       private WriteableBitmap _writeableBitmap;
       private int _wbPixelWidth = 0;
       private int _wbPixelHeight = 0;
+      private int mVideoFrameCounter = 0;
+      private int mAnalyticsFrameCounter = 0;
+      private double mVideoFps;
+      private double mAnalyticsFps = 0;
+      private DateTime mLastVideoFpsUpdate = DateTime.Now;
+      private DateTime mLastAnalyticsFpsUpdate = DateTime.Now;
+      private double mLastVideoDecodeMs = 0;
+      private double mLastInferenceMs = 0;
 
       public MainWindow()
       {
          InitializeComponent();
-
          string[] args = Environment.GetCommandLineArgs();
          if (args.Length == 2)
          {
@@ -75,7 +82,9 @@ namespace YoloObjectDetectionApp
             mVideoCapture = new VideoCapture();
 
          mVideoCapture.Open(mUrl);
-         mVideoCapture.Set(VideoCaptureProperties.BufferSize, 3);
+         mVideoCapture.Set(VideoCaptureProperties.BufferSize, 1); // Set buffer size to 1 for minimal latency
+         Debug.WriteLine($"Camera FPS: {mVideoCapture.Get(VideoCaptureProperties.Fps)}");
+         Debug.WriteLine($"Frame size: {mVideoCapture.FrameWidth}x{mVideoCapture.FrameHeight}");
          bool bIsOpen = mVideoCapture.IsOpened();
          if (bIsOpen)
          {
@@ -85,6 +94,8 @@ namespace YoloObjectDetectionApp
             {
                 while (!token.IsCancellationRequested)
                 {
+                    // --- Video decode timing ---
+                    var swDecode = Stopwatch.StartNew();
                     bool grabbed = mVideoCapture.Grab();
                     if (!grabbed)
                     {
@@ -94,11 +105,28 @@ namespace YoloObjectDetectionApp
                     }
                     Mat orgMatrix = new Mat();
                     bool retrieved = mVideoCapture.Retrieve(orgMatrix);
+                    swDecode.Stop();
+                    mLastVideoDecodeMs = swDecode.Elapsed.TotalMilliseconds;
                     if (!retrieved || orgMatrix.Empty())
                     {
                         Debug.WriteLine("No frame retrieved, sleeping...");
                         Thread.Sleep(50);
                         continue;
+                    }
+
+                    // --- Video FPS counter ---
+                    mVideoFrameCounter++;
+                    var now = DateTime.Now;
+                    if ((now - mLastVideoFpsUpdate).TotalSeconds >= 1)
+                    {
+                        mVideoFps = mVideoFrameCounter / (now - mLastVideoFpsUpdate).TotalSeconds;
+                        mVideoFrameCounter = 0;
+                        mLastVideoFpsUpdate = now;
+                        await Application.Current.Dispatcher.InvokeAsync(() =>
+                        {
+                            VideoFpsText.Text = $"Video FPS: {mVideoFps:F1}";
+                            VideoDecodeTimeText.Text = $"Video Decode: {mLastVideoDecodeMs:F1} ms";
+                        });
                     }
 
                     // Update UI on every frame (no throttling)
@@ -159,7 +187,24 @@ namespace YoloObjectDetectionApp
       {
          try
          {
+            var swInference = Stopwatch.StartNew();
+            mAnalyticsFrameCounter++;
+            var now = DateTime.Now;
+            if ((now - mLastAnalyticsFpsUpdate).TotalSeconds >= 1)
+            {
+                mAnalyticsFps = mAnalyticsFrameCounter / (now - mLastAnalyticsFpsUpdate).TotalSeconds;
+                mAnalyticsFrameCounter = 0;
+                mLastAnalyticsFpsUpdate = now;
+                await Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    AnalyticsFpsText.Text = $"Analytics FPS: {mAnalyticsFps:F1}";
+                    InferenceTimeText.Text = $"Inference: {mLastInferenceMs:F1} ms";
+                });
+            }
+
             List<BoundingBox> boundingBoxes = yoloDetector.DetectObjectsUsingModel(OpenCvSharp.Extensions.BitmapConverter.ToBitmap(imageMatrix));
+            swInference.Stop();
+            mLastInferenceMs = swInference.Elapsed.TotalMilliseconds;
             imageMatrix.Dispose();
 
             if (boundingBoxes.Count > 0)
