@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -13,6 +14,7 @@ using YoloObjectDetection;
 using YoloObjectDetection.Interfaces;
 using YoloObjectDetection.YoloV4;
 using Rectangle = System.Windows.Shapes.Rectangle;
+using System.Text.Json;
 
 namespace YoloObjectDetectionApp
 {
@@ -34,22 +36,100 @@ namespace YoloObjectDetectionApp
       private DateTime mLastAnalyticsFpsUpdate = DateTime.Now;
       private double mLastVideoDecodeMs = 0;
       private double mLastInferenceMs = 0;
+      private static readonly string SettingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "YoloObjectDetectionApp", "usersettings.json");
+      private UserSettings _userSettings = new UserSettings();
 
       public MainWindow()
       {
          InitializeComponent();
+         LoadSettings();
+         if (ShowStatsCheckBox != null)
+         {
+            ShowStatsCheckBox.IsChecked = _userSettings.ShowVideoStats;
+            ShowStatsCheckBox.Checked += (s, e) => ToggleStatsOverlay(true);
+            ShowStatsCheckBox.Unchecked += (s, e) => ToggleStatsOverlay(false);
+         }
+         if (EnableInferenceCheckBox != null)
+         {
+            EnableInferenceCheckBox.IsChecked = _userSettings.EnableInference;
+            EnableInferenceCheckBox.Checked += (s, e) => ToggleInference(true);
+            EnableInferenceCheckBox.Unchecked += (s, e) => ToggleInference(false);
+         }
+         if (StatsOverlay != null)
+            StatsOverlay.Visibility = _userSettings.ShowVideoStats ? Visibility.Visible : Visibility.Collapsed;
+
          string[] args = Environment.GetCommandLineArgs();
          if (args.Length == 2)
          {
             mUrl = args[1];
          }
+         else if (!string.IsNullOrWhiteSpace(_userSettings.ConnectionUrl))
+         {
+            mUrl = _userSettings.ConnectionUrl;
+         }
+         else
+         {
+            mUrl = new UserSettings().ConnectionUrl;
+         }
          ConnectionUri.Text = mUrl;
+      }
+
+      private void ToggleStatsOverlay(bool show)
+      {
+         _userSettings.ShowVideoStats = show;
+         SaveSettings();
+         StatsOverlay.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+      }
+
+      private void ToggleInference(bool enable)
+      {
+         _userSettings.EnableInference = enable;
+         SaveSettings();
+         if (!enable)
+         {
+            ClearCanvas();
+            if (AnalyticsFpsText != null)
+                AnalyticsFpsText.Text = "Analytics FPS: Disabled";
+            if (InferenceTimeText != null)
+                InferenceTimeText.Text = "Inference: Disabled";
+         }
       }
 
       protected override void OnClosing(CancelEventArgs e)
       {
          StopCameraCapture();
          base.OnClosing(e);
+      }
+
+      private void LoadSettings()
+      {
+         try
+         {
+            if (File.Exists(SettingsFilePath))
+            {
+               var json = File.ReadAllText(SettingsFilePath);
+               _userSettings = JsonSerializer.Deserialize<UserSettings>(json) ?? new UserSettings();
+            }
+         }
+         catch (Exception ex)
+         {
+            Debug.WriteLine($"Failed to load settings: {ex.Message}");
+            _userSettings = new UserSettings();
+         }
+      }
+
+      private void SaveSettings()
+      {
+         try
+         {
+            Directory.CreateDirectory(Path.GetDirectoryName(SettingsFilePath)!);
+            var json = JsonSerializer.Serialize(_userSettings);
+            File.WriteAllText(SettingsFilePath, json);
+         }
+         catch (Exception ex)
+         {
+            Debug.WriteLine($"Failed to save settings: {ex.Message}");
+         }
       }
 
       private void StartCameraCapture(string strUrl)
@@ -59,6 +139,8 @@ namespace YoloObjectDetectionApp
          {
             mCameraCaptureCancellationTokenSource = new CancellationTokenSource();
             mUrl = strUrl;
+            _userSettings.ConnectionUrl = strUrl;
+            SaveSettings();
             mConnectionTask = Task.Run(() => CaptureCamera(mCameraCaptureCancellationTokenSource.Token));
          }
       }
@@ -165,9 +247,12 @@ namespace YoloObjectDetectionApp
                     {
                         mManualAnalyzeResetEvent.Reset();
                         iFrameCount = 0;
-                        Mat resizedMatrix = orgMatrix.Resize(new OpenCvSharp.Size(YoloV4Config.C_IMAGE_WIDTH, YoloV4Config.C_IMAGE_HEIGHT));
-                        var size = new OpenCvSharp.Size(orgMatrix.Width, orgMatrix.Height);
-                        _ = Task.Run(() => AnalyzeFrameAsync(yoloV4Detector, resizedMatrix, size));
+                        if (_userSettings.EnableInference)
+                        {
+                            Mat resizedMatrix = orgMatrix.Resize(new OpenCvSharp.Size(YoloV4Config.C_IMAGE_WIDTH, YoloV4Config.C_IMAGE_HEIGHT));
+                            var size = new OpenCvSharp.Size(orgMatrix.Width, orgMatrix.Height);
+                            _ = Task.Run(() => AnalyzeFrameAsync(yoloV4Detector, resizedMatrix, size));
+                        }
                     }
                     iFrameCount++;
                 }

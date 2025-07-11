@@ -22,15 +22,21 @@
          <Image x:Name="DisplayImage" Grid.Row="0" />
          <Canvas x:Name="DisplayImageCanvas" Grid.Row="0" Width="{Binding Path=ActualWidth, ElementName=DisplayImage}" Height="{Binding Path=ActualHeight, ElementName=DisplayImage}" Margin="0,0,0,0"/>
          <!-- FPS Overlay -->
-         <StackPanel Orientation="Vertical" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10,10,0,0" Background="#80000000">
+         <StackPanel x:Name="StatsOverlay" Orientation="Vertical" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10,10,0,0" Background="#80000000">
             <TextBlock x:Name="VideoFpsText" Foreground="White" FontWeight="Bold" FontSize="16" Text="Video FPS: " />
             <TextBlock x:Name="AnalyticsFpsText" Foreground="White" FontWeight="Bold" FontSize="16" Text="Analytics FPS: " />
             <TextBlock x:Name="VideoDecodeTimeText" Foreground="White" FontWeight="Bold" FontSize="16" Text="Video Decode: " />
             <TextBlock x:Name="InferenceTimeText" Foreground="White" FontWeight="Bold" FontSize="16" Text="Inference: " />
          </StackPanel>
       </Grid>
-      <TextBox Grid.Row="1" x:Name="ConnectionUri" Margin="10,0,203,46" Height="25" VerticalAlignment="Bottom">rtsp://</TextBox>
-      <Button Grid.Row="1" x:Name="ConnectButton" Margin="0,10,10,0" Content="Connect" Click="ConnectButton_Click" HorizontalAlignment="Right" Width="188" Height="25" VerticalAlignment="Top" />
-      <Button Grid.Row="1" x:Name="DisconnectButton" Margin="0,0,10,10" Content="Disconnect" Click="DisconnectButton_Click" HorizontalAlignment="Right" Width="188" Height="25" VerticalAlignment="Bottom"></Button>
+      <StackPanel Grid.Row="1" Orientation="Vertical" Margin="0">
+         <CheckBox x:Name="ShowStatsCheckBox" Margin="10,0,0,0" VerticalAlignment="Top" HorizontalAlignment="Left" Content="Show Video Statistics" />
+         <CheckBox x:Name="EnableInferenceCheckBox" Margin="10,0,0,0" VerticalAlignment="Top" HorizontalAlignment="Left" Content="Enable Inference" />
+         <Grid>
+            <TextBox x:Name="ConnectionUri" Margin="10,0,203,46" Height="25" VerticalAlignment="Bottom">rtsp://</TextBox>
+            <Button x:Name="ConnectButton" Margin="0,10,10,0" Content="Connect" Click="ConnectButton_Click" HorizontalAlignment="Right" Width="188" Height="25" VerticalAlignment="Top" />
+            <Button x:Name="DisconnectButton" Margin="0,0,10,10" Content="Disconnect" Click="DisconnectButton_Click" HorizontalAlignment="Right" Width="188" Height="25" VerticalAlignment="Bottom"/>
+         </Grid>
+      </StackPanel>
    </Grid>
 </Window>
