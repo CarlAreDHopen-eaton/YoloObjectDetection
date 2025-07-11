@@ -26,8 +26,8 @@ namespace YoloObjectDetectionApp
       private readonly ManualResetEvent mManualAnalyzeResetEvent = new ManualResetEvent(true);
       private Task mConnectionTask;
       private WriteableBitmap _writeableBitmap;
-      private int _wbPixelWidth = 0;
-      private int _wbPixelHeight = 0;
+      private int mWbPixelWidth = 0;
+      private int mWbPixelHeight = 0;
       private int mVideoFrameCounter = 0;
       private int mAnalyticsFrameCounter = 0;
       private double mVideoFps;
@@ -37,7 +37,7 @@ namespace YoloObjectDetectionApp
       private double mLastVideoDecodeMs = 0;
       private double mLastInferenceMs = 0;
       private static readonly string SettingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "YoloObjectDetectionApp", "usersettings.json");
-      private UserSettings _userSettings = new UserSettings();
+      private UserSettings mUserSettings = new UserSettings();
 
       public MainWindow()
       {
@@ -45,27 +45,27 @@ namespace YoloObjectDetectionApp
          LoadSettings();
          if (ShowStatsCheckBox != null)
          {
-            ShowStatsCheckBox.IsChecked = _userSettings.ShowVideoStats;
+            ShowStatsCheckBox.IsChecked = mUserSettings.ShowVideoStats;
             ShowStatsCheckBox.Checked += (s, e) => ToggleStatsOverlay(true);
             ShowStatsCheckBox.Unchecked += (s, e) => ToggleStatsOverlay(false);
          }
          if (EnableInferenceCheckBox != null)
          {
-            EnableInferenceCheckBox.IsChecked = _userSettings.EnableInference;
+            EnableInferenceCheckBox.IsChecked = mUserSettings.EnableInference;
             EnableInferenceCheckBox.Checked += (s, e) => ToggleInference(true);
             EnableInferenceCheckBox.Unchecked += (s, e) => ToggleInference(false);
          }
          if (StatsOverlay != null)
-            StatsOverlay.Visibility = _userSettings.ShowVideoStats ? Visibility.Visible : Visibility.Collapsed;
+            StatsOverlay.Visibility = mUserSettings.ShowVideoStats ? Visibility.Visible : Visibility.Collapsed;
 
          string[] args = Environment.GetCommandLineArgs();
          if (args.Length == 2)
          {
             mUrl = args[1];
          }
-         else if (!string.IsNullOrWhiteSpace(_userSettings.ConnectionUrl))
+         else if (!string.IsNullOrWhiteSpace(mUserSettings.ConnectionUrl))
          {
-            mUrl = _userSettings.ConnectionUrl;
+            mUrl = mUserSettings.ConnectionUrl;
          }
          else
          {
@@ -76,14 +76,14 @@ namespace YoloObjectDetectionApp
 
       private void ToggleStatsOverlay(bool show)
       {
-         _userSettings.ShowVideoStats = show;
+         mUserSettings.ShowVideoStats = show;
          SaveSettings();
          StatsOverlay.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
       }
 
       private void ToggleInference(bool enable)
       {
-         _userSettings.EnableInference = enable;
+         mUserSettings.EnableInference = enable;
          SaveSettings();
          if (!enable)
          {
@@ -108,13 +108,13 @@ namespace YoloObjectDetectionApp
             if (File.Exists(SettingsFilePath))
             {
                var json = File.ReadAllText(SettingsFilePath);
-               _userSettings = JsonSerializer.Deserialize<UserSettings>(json) ?? new UserSettings();
+               mUserSettings = JsonSerializer.Deserialize<UserSettings>(json) ?? new UserSettings();
             }
          }
          catch (Exception ex)
          {
             Debug.WriteLine($"Failed to load settings: {ex.Message}");
-            _userSettings = new UserSettings();
+            mUserSettings = new UserSettings();
          }
       }
 
@@ -123,7 +123,7 @@ namespace YoloObjectDetectionApp
          try
          {
             Directory.CreateDirectory(Path.GetDirectoryName(SettingsFilePath)!);
-            var json = JsonSerializer.Serialize(_userSettings);
+            var json = JsonSerializer.Serialize(mUserSettings);
             File.WriteAllText(SettingsFilePath, json);
          }
          catch (Exception ex)
@@ -139,7 +139,7 @@ namespace YoloObjectDetectionApp
          {
             mCameraCaptureCancellationTokenSource = new CancellationTokenSource();
             mUrl = strUrl;
-            _userSettings.ConnectionUrl = strUrl;
+            mUserSettings.ConnectionUrl = strUrl;
             SaveSettings();
             mConnectionTask = Task.Run(() => CaptureCamera(mCameraCaptureCancellationTokenSource.Token));
          }
@@ -151,10 +151,13 @@ namespace YoloObjectDetectionApp
          {
             mCameraCaptureCancellationTokenSource?.Cancel();
             await mConnectionTask;
-            //mCameraCaptureCancellationTokenSource = null;
-            mUrl = null;
+            mCameraCaptureCancellationTokenSource = null; // Ensure this is reset immediately
+            // Do not set mUrl to null here
             ClearCanvas();
             DisplayImage.Source = null;
+            _writeableBitmap = null; // Reset bitmap so it reinitializes on reconnect
+            mWbPixelWidth = 0;
+            mWbPixelHeight = 0;
          }
       }
 
@@ -217,10 +220,10 @@ namespace YoloObjectDetectionApp
                         try
                         {
                             // Initialize WriteableBitmap if needed
-                            if (_writeableBitmap == null || _wbPixelWidth != orgMatrix.Width || _wbPixelHeight != orgMatrix.Height)
+                            if (_writeableBitmap == null || mWbPixelWidth != orgMatrix.Width || mWbPixelHeight != orgMatrix.Height)
                             {
-                                _wbPixelWidth = orgMatrix.Width;
-                                _wbPixelHeight = orgMatrix.Height;
+                                mWbPixelWidth = orgMatrix.Width;
+                                mWbPixelHeight = orgMatrix.Height;
                                 _writeableBitmap = new WriteableBitmap(
                                     orgMatrix.Width,
                                     orgMatrix.Height,
@@ -247,7 +250,7 @@ namespace YoloObjectDetectionApp
                     {
                         mManualAnalyzeResetEvent.Reset();
                         iFrameCount = 0;
-                        if (_userSettings.EnableInference)
+                        if (mUserSettings.EnableInference)
                         {
                             Mat resizedMatrix = orgMatrix.Resize(new OpenCvSharp.Size(YoloV4Config.C_IMAGE_WIDTH, YoloV4Config.C_IMAGE_HEIGHT));
                             var size = new OpenCvSharp.Size(orgMatrix.Width, orgMatrix.Height);
