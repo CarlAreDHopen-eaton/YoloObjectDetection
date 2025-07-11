@@ -93,6 +93,13 @@ namespace YoloObjectDetectionApp
             if (InferenceTimeText != null)
                 InferenceTimeText.Text = "Inference: Disabled";
          }
+         else
+         {
+            // Reset state so inference resumes immediately
+            mManualAnalyzeResetEvent.Set(); // Allow analysis to trigger
+            // Optionally, reset frame counter to force analysis soon
+            // (if iFrameCount is a field, reset it here; otherwise, analysis will trigger on next eligible frame)
+         }
       }
 
       protected override void OnClosing(CancelEventArgs e)
