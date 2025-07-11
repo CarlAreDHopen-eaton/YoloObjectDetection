@@ -25,7 +25,7 @@ namespace YoloObjectDetectionApp
       private CancellationTokenSource mCameraCaptureCancellationTokenSource;
       private readonly ManualResetEvent mManualAnalyzeResetEvent = new ManualResetEvent(true);
       private Task mConnectionTask;
-      private WriteableBitmap _writeableBitmap;
+      private WriteableBitmap mWriteableBitmap;
       private int mWbPixelWidth = 0;
       private int mWbPixelHeight = 0;
       private int mVideoFrameCounter = 0;
@@ -38,6 +38,7 @@ namespace YoloObjectDetectionApp
       private double mLastInferenceMs = 0;
       private static readonly string SettingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "YoloObjectDetectionApp", "usersettings.json");
       private UserSettings mUserSettings = new UserSettings();
+      private volatile bool mIisDrawingAllowed = true;
 
       public MainWindow()
       {
@@ -85,6 +86,7 @@ namespace YoloObjectDetectionApp
       {
          mUserSettings.EnableInference = enable;
          SaveSettings();
+         mIisDrawingAllowed = enable; // Only allow drawing if inference is enabled
          if (!enable)
          {
             ClearCanvas();
@@ -95,10 +97,7 @@ namespace YoloObjectDetectionApp
          }
          else
          {
-            // Reset state so inference resumes immediately
-            mManualAnalyzeResetEvent.Set(); // Allow analysis to trigger
-            // Optionally, reset frame counter to force analysis soon
-            // (if iFrameCount is a field, reset it here; otherwise, analysis will trigger on next eligible frame)
+            mManualAnalyzeResetEvent.Set();
          }
       }
 
@@ -142,6 +141,8 @@ namespace YoloObjectDetectionApp
       private void StartCameraCapture(string strUrl)
       {
          Debug.WriteLine($"StartCameraCapture called with URL: {strUrl}");
+         ClearCanvas();
+         mIisDrawingAllowed = true; // Allow drawing overlays on new connection
          if (mCameraCaptureCancellationTokenSource == null)
          {
             mCameraCaptureCancellationTokenSource = new CancellationTokenSource();
@@ -154,15 +155,15 @@ namespace YoloObjectDetectionApp
 
       private async void StopCameraCapture()
       {
+         mIisDrawingAllowed = false; // Prevent further overlay drawing
          if (mConnectionTask != null)
          {
             mCameraCaptureCancellationTokenSource?.Cancel();
             await mConnectionTask;
-            mCameraCaptureCancellationTokenSource = null; // Ensure this is reset immediately
-            // Do not set mUrl to null here
+            mCameraCaptureCancellationTokenSource = null;
             ClearCanvas();
             DisplayImage.Source = null;
-            _writeableBitmap = null; // Reset bitmap so it reinitializes on reconnect
+            mWriteableBitmap = null;
             mWbPixelWidth = 0;
             mWbPixelHeight = 0;
          }
@@ -227,25 +228,25 @@ namespace YoloObjectDetectionApp
                         try
                         {
                             // Initialize WriteableBitmap if needed
-                            if (_writeableBitmap == null || mWbPixelWidth != orgMatrix.Width || mWbPixelHeight != orgMatrix.Height)
+                            if (mWriteableBitmap == null || mWbPixelWidth != orgMatrix.Width || mWbPixelHeight != orgMatrix.Height)
                             {
                                 mWbPixelWidth = orgMatrix.Width;
                                 mWbPixelHeight = orgMatrix.Height;
-                                _writeableBitmap = new WriteableBitmap(
+                                mWriteableBitmap = new WriteableBitmap(
                                     orgMatrix.Width,
                                     orgMatrix.Height,
                                     96, 96, // DPI
                                     PixelFormats.Bgr24, // OpenCvSharp default
                                     null);
-                                DisplayImage.Source = _writeableBitmap;
+                                DisplayImage.Source = mWriteableBitmap;
                             }
                             // Copy Mat data to WriteableBitmap
                             var rect = new Int32Rect(0, 0, orgMatrix.Width, orgMatrix.Height);
                             int stride = orgMatrix.Width * 3; // 3 bytes per pixel for Bgr24
-                            _writeableBitmap.Lock();
-                            _writeableBitmap.WritePixels(rect, orgMatrix.Data, stride * orgMatrix.Height, stride);
-                            _writeableBitmap.AddDirtyRect(rect);
-                            _writeableBitmap.Unlock();
+                            mWriteableBitmap.Lock();
+                            mWriteableBitmap.WritePixels(rect, orgMatrix.Data, stride * orgMatrix.Height, stride);
+                            mWriteableBitmap.AddDirtyRect(rect);
+                            mWriteableBitmap.Unlock();
                         }
                         catch (Exception ex)
                         {
@@ -302,11 +303,12 @@ namespace YoloObjectDetectionApp
             mLastInferenceMs = swInference.Elapsed.TotalMilliseconds;
             imageMatrix.Dispose();
 
-            if (boundingBoxes.Count > 0)
+            if (mIisDrawingAllowed && boundingBoxes.Count > 0)
             {
                await Application.Current.Dispatcher.InvokeAsync(() =>
                {
-                  OverlayHelper.DrawOverlays(this, boundingBoxes, DisplayImage.ActualHeight, DisplayImage.ActualWidth);
+                  if (mIisDrawingAllowed) // Double-check on UI thread
+                      OverlayHelper.DrawOverlays(this, boundingBoxes, DisplayImage.ActualHeight, DisplayImage.ActualWidth);
                });
             }
          }
@@ -344,6 +346,7 @@ namespace YoloObjectDetectionApp
       private void DisconnectButton_Click(object sender, RoutedEventArgs e)
       {
          StopCameraCapture();
+         ClearCanvas(); // Ensure overlays are cleared on disconnect
       }
    }
 }
