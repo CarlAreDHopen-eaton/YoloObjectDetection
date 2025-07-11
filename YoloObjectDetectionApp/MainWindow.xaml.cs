@@ -36,6 +36,7 @@ namespace YoloObjectDetectionApp
       private DateTime mLastAnalyticsFpsUpdate = DateTime.Now;
       private double mLastVideoDecodeMs = 0;
       private double mLastInferenceMs = 0;
+      private DateTime mLastInferenceTime = DateTime.MinValue;
       private static readonly string SettingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "YoloObjectDetectionApp", "usersettings.json");
       private UserSettings mUserSettings = new UserSettings();
       private volatile bool mIisDrawingAllowed = true;
@@ -73,6 +74,13 @@ namespace YoloObjectDetectionApp
             mUrl = new UserSettings().ConnectionUrl;
          }
          ConnectionUri.Text = mUrl;
+
+         if (InferenceRateLimitTextBox != null)
+         {
+            InferenceRateLimitTextBox.Text = mUserSettings.InferenceRateLimit.ToString();
+            InferenceRateLimitTextBox.LostFocus += (s, e) => UpdateInferenceRateLimitFromUI();
+            InferenceRateLimitTextBox.KeyDown += (s, e) => { if (e.Key == System.Windows.Input.Key.Enter) UpdateInferenceRateLimitFromUI(); };
+         }
       }
 
       private void ToggleStatsOverlay(bool show)
@@ -169,6 +177,19 @@ namespace YoloObjectDetectionApp
          }
       }
 
+      private void UpdateInferenceRateLimitFromUI()
+      {
+         if (int.TryParse(InferenceRateLimitTextBox.Text, out int rate) && rate > 0)
+         {
+            mUserSettings.InferenceRateLimit = rate;
+            SaveSettings();
+         }
+         else
+         {
+            InferenceRateLimitTextBox.Text = mUserSettings.InferenceRateLimit.ToString();
+         }
+      }
+
       private async Task CaptureCamera(CancellationToken token)
       {
          if (mVideoCapture == null)
@@ -256,6 +277,17 @@ namespace YoloObjectDetectionApp
 
                     if (iFrameCount > 2 && mManualAnalyzeResetEvent.WaitOne(0))
                     {
+                        // --- Inference rate limiting ---
+                        int minIntervalMs = 1000 / Math.Max(1, mUserSettings.InferenceRateLimit);
+                        var nowTime = DateTime.UtcNow;
+                        if ((nowTime - mLastInferenceTime).TotalMilliseconds < minIntervalMs)
+                        {
+                            mManualAnalyzeResetEvent.Set();
+                            iFrameCount++;
+                            continue;
+                        }
+                        mLastInferenceTime = nowTime;
+                        // --- End rate limiting ---
                         mManualAnalyzeResetEvent.Reset();
                         iFrameCount = 0;
                         if (mUserSettings.EnableInference)
